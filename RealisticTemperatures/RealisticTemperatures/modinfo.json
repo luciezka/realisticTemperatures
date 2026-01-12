@@ -1,0 +1,13 @@
+{
+    "type": "code",
+    "modid": "realistictemperatures",
+    "name": "RealisticTemperatures",
+    "authors": [
+        "SilverValkyrie"
+    ],
+    "description": "makes freezing much much more dangerous",
+    "version": "0.0.1",
+    "dependencies": {
+        "game": ""
+    }
+}
