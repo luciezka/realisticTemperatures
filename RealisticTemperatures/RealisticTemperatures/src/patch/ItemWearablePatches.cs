@@ -17,38 +17,10 @@ public class ItemWearablePatches
     public const string FONT_CLOSE_TAG = "</font>";
 
     [HarmonyPatch(typeof(ItemWearable), "GetHeldItemInfo")]
-    [HarmonyTranspiler]
-    public static IEnumerable<CodeInstruction> AddWetnessToClothes_Alternative(IEnumerable<CodeInstruction> instructions)
+    static void Postfix(StringBuilder dsc, ItemSlot inSlot)
     {
-        var codes = new List<CodeInstruction>(instructions);
-        var appendMethod = AccessTools.Method(typeof(StringBuilder), nameof(StringBuilder.Append), new[] { typeof(string) });
-        
-        
-        var newInstructions = new List<CodeInstruction>
-        {
-            // Load the StringBuilder 
-            CodeInstruction.LoadArgument(1), // in slot
-            CodeInstruction.LoadArgument(2), // dsc
-            
-            new CodeInstruction(OpCodes.Call, 
-                AccessTools.Method(typeof(ItemWearablePatches), nameof(AppendInfo))),
-        };
-        
-        
-        // find last append
-        for (int i = codes.Count - 1; i >= 0; i--)
-        {
-            if (codes[i].opcode == OpCodes.Callvirt && 
-                codes[i].operand is MethodInfo method && 
-                method == appendMethod)
-            {
-                codes.InsertRange(i +1, newInstructions);
-                break;
-            }
-        }
-        return codes;
+        AppendInfo(inSlot,dsc);
     }
-    
     
     
     public static void AppendInfo(ItemSlot inSlot, StringBuilder dsc)
@@ -79,3 +51,43 @@ public class ItemWearablePatches
     public static bool OrCoolingExists(bool warmthExists, ItemStack itemStack) =>
         warmthExists || itemStack.ItemAttributes[Attributes.Wetness].AsFloat(0f) != 30f;
 }
+
+
+
+
+
+ 
+/* found a better alternative then use a transpiler but i would like to keep it as a look up 
+
+ public static IEnumerable<CodeInstruction> AddWetnessToClothes(IEnumerable<CodeInstruction> instructions)
+    {
+        var codes = new List<CodeInstruction>(instructions);
+        var appendMethod = AccessTools.Method(typeof(StringBuilder), nameof(StringBuilder.Append), new[] { typeof(string) });
+        
+        
+        var newInstructions = new List<CodeInstruction>
+        {
+            // Load the StringBuilder 
+            CodeInstruction.LoadArgument(1), // in slot
+            CodeInstruction.LoadArgument(2), // dsc
+            
+            new CodeInstruction(OpCodes.Call, 
+                AccessTools.Method(typeof(ItemWearablePatches), nameof(AppendInfo))),
+        };
+        
+        
+        // find last append
+        for (int i = codes.Count - 1; i >= 0; i--)
+        {
+            if (codes[i].opcode == OpCodes.Callvirt && 
+                codes[i].operand is MethodInfo method && 
+                method == appendMethod)
+            {
+                codes.InsertRange(i +1, newInstructions);
+                break;
+            }
+        }
+        return codes;
+    }
+    
+    */
