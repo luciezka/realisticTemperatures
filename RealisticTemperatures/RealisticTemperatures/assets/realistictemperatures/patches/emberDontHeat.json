@@ -1,0 +1,8 @@
+﻿[
+  {
+    "file": "game:blocktypes/ember.json",
+    "op": "replace",
+    "path": "/behaviors/0/properties/heatStrength",
+    "value": "0"
+  }
+]
