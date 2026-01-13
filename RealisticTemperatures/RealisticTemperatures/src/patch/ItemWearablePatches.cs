@@ -60,7 +60,7 @@ public class ItemWearablePatches
         {
             dsc.Append(Lang.Get("realistictemperatures:wetness"));
             dsc.Append(": ");
-            dsc.Append("<font color=\"#1c3f37\">");
+            dsc.Append("<font color=\"#36bdbe\">");
             dsc.Append(23f);
             dsc.Append("%");
             dsc.AppendLine(FONT_CLOSE_TAG);
