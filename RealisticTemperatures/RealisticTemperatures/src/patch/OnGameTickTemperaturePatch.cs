@@ -99,77 +99,80 @@ public static class OnGameTickTemperaturePatch
     [HarmonyTranspiler]
     static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
     {
-        var codes = new List<CodeInstruction>(instructions);
-
-
-        int startReplace = 0;
-        int endReplace = 0;
-
-
         var code = new List<CodeInstruction>(instructions);
+
+        int startReplace = -1;
+        int endReplace = -1;
+
+        
         for (int i = 0; i < code.Count; i++)
         {
-            // Look for Rainfall
-            if (code[i].opcode == OpCodes.Ldfld && ((FieldInfo)code[i].operand).Name == "Rainfall")
+
+            if (code[i].opcode == OpCodes.Ldfld &&
+                code[i].operand is FieldInfo field &&
+                field.Name == "Rainfall")
             {
                 startReplace = i - 1;
             }
 
+            // Look for set_Wetness call (end of the block)
             if (code[i].opcode == OpCodes.Call &&
-                (codes[i].Calls(AccessTools.Method(typeof(EntityBehaviorBodyTemperature), "set_Wetness"))))
+                code[i].operand is MethodInfo method &&
+                method.Name == "set_Wetness")
             {
                 endReplace = i;
+                break; // Found the end, stop searching
             }
         }
 
         if (startReplace == -1 || endReplace == -1)
+        {
             return code;
+        }
+
+      
+        var wetnessGetter = AccessTools.PropertyGetter(typeof(EntityBehaviorBodyTemperature), "Wetness");
 
 
         var newInstructions = new List<CodeInstruction>
         {
-            // Load all parameters for RealisticWetnessOverride
-            new CodeInstruction(OpCodes.Ldarg_0), // this (get api from instance)
+            new CodeInstruction(OpCodes.Ldarg_0),
+            // Load arguments for your method
+            new CodeInstruction(OpCodes.Ldarg_0),
+            new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(EntityBehaviorBodyTemperature), "api")),
+
+            new CodeInstruction(OpCodes.Ldarg_0),
+            new CodeInstruction(OpCodes.Ldfld, AccessTools.Field(typeof(EntityBehaviorBodyTemperature), "entity")),
+
+            new CodeInstruction(OpCodes.Ldloc_S, 5), // eplr
+            new CodeInstruction(OpCodes.Ldloc_S, 7), // conds
+            new CodeInstruction(OpCodes.Ldloc_S, 9), // rainexposed
+
+            new CodeInstruction(OpCodes.Ldarg_0),
             new CodeInstruction(OpCodes.Call,
-                AccessTools.PropertyGetter(typeof(EntityBehaviorBodyTemperature), "entity")),
-            new CodeInstruction(OpCodes.Callvirt, AccessTools.PropertyGetter(typeof(EntityBehavior), "entity")),
+                AccessTools.PropertyGetter(typeof(EntityBehaviorBodyTemperature), "LastWetnessUpdateTotalHours")),
 
-            new CodeInstruction(OpCodes.Ldarg_0), // entity
-            new CodeInstruction(OpCodes.Ldfld,
-                AccessTools.Field(typeof(EntityBehaviorBodyTemperature), "entity")),
-
-            new CodeInstruction(OpCodes.Ldloc_S, 4), // eplr (adjust index as needed)
-            new CodeInstruction(OpCodes.Ldloc_0), // conds
-            new CodeInstruction(OpCodes.Ldarg_0), // this.Wetness
-            new CodeInstruction(OpCodes.Ldfld,
-                AccessTools.Field(typeof(EntityBehaviorBodyTemperature), "Wetness")),
-            new CodeInstruction(OpCodes.Ldloc_1), // rainExposed
-            new CodeInstruction(OpCodes.Ldarg_0), // this.LastWetnessUpdateTotalHours
-            new CodeInstruction(OpCodes.Ldfld,
-                AccessTools.Field(typeof(EntityBehaviorBodyTemperature), "LastWetnessUpdateTotalHours")),
-            new CodeInstruction(OpCodes.Ldloc_3), // nearHeatSourceStrength
-
-            // Call our custom function
+            new CodeInstruction(OpCodes.Ldarg_0),
             new CodeInstruction(OpCodes.Call,
-                AccessTools.Method(typeof(OnGameTickTemperaturePatch),
-                    nameof(OnGameTickTemperaturePatch.RealisticWetnessOverride))),
+                AccessTools.PropertyGetter(typeof(EntityBehaviorBodyTemperature), "nearHeatSourceStrength")),
+
+            // Call your static method
+            new CodeInstruction(OpCodes.Call,
+                AccessTools.Method(typeof(OnGameTickTemperaturePatch), "RealisticWetnessOverride"))
         };
 
-
         code.RemoveRange(startReplace, endReplace - startReplace + 1);
+        code.InsertRange(startReplace, newInstructions);
 
-        // Insert your function call
-        codes.InsertRange(startReplace, newInstructions);
-        
-        
+
         return code;
     }
 
 
-    public static void RealisticWetnessOverride(ICoreAPI api, Entity entity, EntityPlayer eplr, ClimateCondition conds,
-        float Wetness, bool rainExposed, double LastWetnessUpdateTotalHours, float nearHeatSourceStrength)
+    public static void RealisticWetnessOverride(EntityBehaviorBodyTemperature behavior, ICoreAPI api, Entity entity, EntityPlayer eplr, ClimateCondition conds,
+         bool rainExposed, double LastWetnessUpdateTotalHours, float nearHeatSourceStrength)
     {
-        //  Define all Wetnessclothing slots 
+       
         var charInv = eplr.Player.InventoryManager.GetOwnInventory(GlobalConstants.characterInvClassName);
 
         var clothingSlotTypes = new[]
@@ -181,13 +184,20 @@ public static class OnGameTickTemperaturePatch
             EnumCharacterDressType.Foot
         };
 
+        List<ItemSlot> clothingSlot = clothingSlotTypes
+            .Select(type => charInv?.FirstOrDefault(slot => (slot as ItemSlotCharacter)?.Type == type))
+            .ToList();
+        
+
         List<ItemStack> clothingArray = clothingSlotTypes
             .Select(type => charInv?.FirstOrDefault(slot => (slot as ItemSlotCharacter)?.Type == type))
             .Where(slot => slot?.Itemstack != null)
             .Select(slot => slot.Itemstack)
             .ToList();
 
-
+        
+        
+        
         // made rain apply 50% slower
         float wetnessFromRain =
             conds.Rainfall * (rainExposed ? 0.012f : 0) *
@@ -206,8 +216,8 @@ public static class OnGameTickTemperaturePatch
                 totalRainProtection += eplr.LeftHandItemSlot.Itemstack.ItemAttributes["rainProtectionPerc"].AsFloat(0);
 
             // Add protection from head slot (hat/helmet)
-            if (clothingArray.Count > 0 && clothingArray[0] != null)
-                totalRainProtection += clothingArray[0].ItemAttributes["rainProtectionPerc"].AsFloat(0);
+            if (clothingSlot[0].Itemstack != null)
+                totalRainProtection += clothingSlot[0].Itemstack.ItemAttributes["rainProtectionPerc"].AsFloat(0);
 
             wetnessFromRain *= GameMath.Clamp(1 - totalRainProtection, 0, 1);
         }
@@ -218,14 +228,19 @@ public static class OnGameTickTemperaturePatch
         {
             float wetnessfromWorld = wetnessFromRain + (entity.Swimming ? 1 : 0);
 
-            foreach (ItemStack itemStack in clothingArray)
+            foreach (ItemSlot itemSlot in clothingSlot)
             {
-                float currentWetness = itemStack.ItemAttributes["Wetness"].AsFloat();
-                float newWetness = GameMath.Clamp(currentWetness + wetnessfromWorld, 0, 1);
-
-                itemStack.Attributes.SetFloat("wetness", newWetness);
+                if (itemSlot.Itemstack != null)
+                {
+                    float currentWetness = itemSlot.Itemstack.ItemAttributes["wetness"].AsFloat();
+                    float newWetness = GameMath.Clamp(currentWetness + wetnessfromWorld, 0, 1);
+                    itemSlot.Itemstack.Attributes.SetFloat("wetness", newWetness);
+                    itemSlot.MarkDirty();
+                }
             }
         }
+        
+        
 
 
         // Apply Wetness from Clothes to body
@@ -233,12 +248,12 @@ public static class OnGameTickTemperaturePatch
         {
             var clothWetness = 0f;
             clothWetness = clothingArray.Average(item => item.ItemAttributes["wetness"].AsFloat(0));
-            Wetness = clothWetness;
+            behavior.Wetness = clothWetness;
         } // If no clothes are worn default to vanilla logic 
         else
         {
-            Wetness = GameMath.Clamp(
-                Wetness
+            behavior.Wetness = GameMath.Clamp(
+                behavior.Wetness
                 + wetnessFromRain
                 + (entity.Swimming ? 1 : 0)
                 - (float)Math.Max(0,
