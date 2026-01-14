@@ -65,32 +65,6 @@ public class ItemWearablePatches
     }
 
 
-
-/// <summary>
-/// Make clothes wet when changed by interacting   ////// Delete all of this and change logic to make clothes wet IRL time 
-/// player jumps in water -> clothes get wet -> player wetness dependent on clothing Wetness 
-/// wetness = 5 solts of clothing wetness + then  / 5 makes avrg wetness.
-///
-/// shift ingame logic to apply a wetState to clothes  
-/// </summary>
-/// <param name="byEntity"></param>
-    [HarmonyPatch(typeof(ItemWearable), "OnHeldInteractStart")]
-    [HarmonyPostfix]
-    static void Postfix(EntityAgent byEntity)
-    {
-        IPlayer byPlayer = (byEntity as EntityPlayer)?.Player;
-        var playerbodytemp = byPlayer.Entity.GetBehavior<EntityBehaviorBodyTemperature>();
-        ItemStack heldItem = byPlayer.Entity.RightHandItemSlot?.Itemstack;
-        
-        if (playerbodytemp.Wetness > 0 &&  heldItem != null)
-        {
-            heldItem.Attributes.SetFloat("wetness", 100);
-            playerbodytemp.Wetness -= 0.25f;
-           
-            byPlayer.Entity.RightHandItemSlot.MarkDirty();
-        }
-    }
-    
     /// <summary>
     /// /Define wetnes string to be appended
     /// </summary>
@@ -106,7 +80,7 @@ public class ItemWearablePatches
             dsc.Append(Lang.Get("realistictemperatures:wetness"));
             dsc.Append(": ");
             dsc.Append("<font color=\"#36bdbe\">");
-            dsc.Append(inSlot.Itemstack.Attributes.GetFloat("wetness", 0).ToString());
+            dsc.Append((inSlot.Itemstack.Attributes.GetFloat("wetness", 0)*100).ToString());
             dsc.Append("%");
             dsc.AppendLine(FONT_CLOSE_TAG);
         }
