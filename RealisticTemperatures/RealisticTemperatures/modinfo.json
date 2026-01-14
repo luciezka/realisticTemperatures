@@ -5,8 +5,8 @@
     "authors": [
         "SilverValkyrie"
     ],
-    "description": "makes freezing much much more dangerous",
-    "version": "0.0.1",
+    "description": "reworks freezing and wetness",
+    "version": "0.0.2",
     "dependencies": {
         "game": ""
     }

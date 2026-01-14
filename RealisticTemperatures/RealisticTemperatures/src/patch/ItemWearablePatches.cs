@@ -1,24 +1,11 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
-using Vintagestory.API.Datastructures;
 using Vintagestory.GameContent;
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Vintagestory.API.Client;
-using Vintagestory.API.Common;
-using Vintagestory.API.Common.Entities;
-using Vintagestory.API.Config;
-using Vintagestory.API.Datastructures;
-using Vintagestory.API.MathTools;
-using Vintagestory.API.Util;
 
 namespace RealisticTemperatures.assets;
 
@@ -26,7 +13,6 @@ namespace RealisticTemperatures.assets;
 public class ItemWearablePatches
 {
     public const string FONT_CLOSE_TAG = "</font>";
-    
     
     
 /// <summary>
@@ -68,8 +54,6 @@ public class ItemWearablePatches
     /// <summary>
     /// /Define wetnes string to be appended
     /// </summary>
-    /// <param name="inSlot"></param>
-    /// <param name="dsc"></param>
     public static void AppendInfo(ItemSlot inSlot, StringBuilder dsc)
     {
         if (inSlot is not ItemSlotCreative && inSlot.Itemstack.Attributes.GetFloat("wetness") != 0)
@@ -86,26 +70,4 @@ public class ItemWearablePatches
         }
     }
 
-    
-    
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* found a better alternative then use a transpiler but i would like to keep it as a look up
-
-
-
-    */
