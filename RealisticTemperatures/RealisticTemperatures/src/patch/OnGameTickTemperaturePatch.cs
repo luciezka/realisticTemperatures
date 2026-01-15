@@ -14,73 +14,47 @@ namespace RealisticTemperatures.assets;
 [HarmonyPatch(typeof(EntityBehaviorBodyTemperature), "OnGameTick")]
 public static class OnGameTickTemperaturePatch
 {
+    [HarmonyTranspiler]
     private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
     {
-        var code = new List<CodeInstruction>(instructions);
-        for (int i = 0; i < code.Count; i++)
-        {
-            // Apply Rain slower
-            if (code[i].opcode == OpCodes.Ldc_R4 && (float)code[i].operand == 0.06f)
-            {
-                code[i].operand = 0.012f;
-            }
+        var matcher = new CodeMatcher(instructions);
 
-            // Look for WetnessMultiplier
-            else if (code[i].opcode == OpCodes.Ldc_R4 && (float)code[i].operand == 15f)
-            {
-                code[i] = new CodeInstruction(OpCodes.Ldarg_0);
+        // Apply Rain slower: 0.06f -> 0.012f
+        matcher.MatchStartForward(
+                new CodeMatch(OpCodes.Ldc_R4, 0.06f))
+            .SetOperandAndAdvance(0.012f);
 
-                // Replace max value 15 with CalculateDebuffMultiplier for Wettnessmultiplication
-                code.Insert(i + 1, new CodeInstruction(
-                    OpCodes.Call,
-                    typeof(OnGameTickTemperaturePatch).GetMethod("CalculateDebuffMultiplier")));
-                i++;
-            }
+        // Change damage: 0.2f -> 2f
+        matcher.Start().MatchStartForward(
+                new CodeMatch(OpCodes.Ldc_R4, 0.2f))
+            .SetOperandAndAdvance(2f);
 
-            // change damage to 2 instead of 0.2 
-            else if (code[i].opcode == OpCodes.Ldc_R4 && (float)code[i].operand == 0.2f)
-            {
-                code[i].operand = 2f;
-            }
+        // Shockfreezing: -6.0f -> -50.0f
+        matcher.Start()
+            .MatchStartForward(new CodeMatch(OpCodes.Ldc_R4, -6.0f))
+            .SetOperandAndAdvance(-50.0f);
 
-            // lets the ambientChange be quite big / Shockfreezing
-            else if (code[i].opcode == OpCodes.Ldc_R4 && (float)code[i].operand == -6.0f)
-            {
-                code[i].operand = -50.0f;
-            }
+        // Change time until freeze damage applies: 3.0f -> 1f (for damagingFreezeHours field)
+        matcher.Start()
+            .MatchStartForward(
+                new CodeMatch(OpCodes.Ldfld,AccessTools.Field(null, "damagingFreezeHours")),
+                new CodeMatch(OpCodes.Ldc_R4, 3.0f)).Advance(1)
+            .SetOperandAndAdvance(1f);
+        
+        
+        // Replace WetnessMultiplier 15f with CalculateDebuffMultiplier call
+        matcher.Start()
+            .MatchStartForward(
+                new CodeMatch(OpCodes.Ldc_R4, 15f))
+            .RemoveInstruction().Insert(
+                new CodeInstruction(OpCodes.Ldarg_0),
+                new CodeInstruction(OpCodes.Call,typeof(OnGameTickTemperaturePatch).GetMethod("CalculateDebuffMultiplier")));
 
-            //change time until freeze dmg applies 
-            else if (code[i].opcode == OpCodes.Ldc_R4 && (float)code[i].operand == 3.0 &&
-                     code[i + 1].opcode == OpCodes.Stfld &&
-                     ((FieldInfo)code[i + 1].operand).Name == "damagingFreezeHours")
-            {
-                code[i].operand = 1f;
-            }
-
-            // Rooms shouldnt cool food and warm you at the same time 
-            // Check for Room
-            else if (code[i].opcode == OpCodes.Ldfld &&
-                     code[i].operand is FieldInfo field &&
-                     field.Name == "inEnclosedRoom" &&
-                     (code[i + 1].opcode == OpCodes.Brtrue || code[i + 1].opcode == OpCodes.Brtrue_S))
-            {
-                for (int j = i + 1; j < i + 16; j++)
-                {
-                    // check if true value
-                    if ((code[j].opcode == OpCodes.Br || code[j].opcode == OpCodes.Br_S)
-                        && code[j + 1].opcode == OpCodes.Ldc_R4
-                        && (float)code[j + 1].operand == 1f)
-                    {
-                        // no more Heating 
-                        code[j + 1].operand = 0f;
-                        break;
-                    }
-                }
-            }
-        }
-        return code;
+        return matcher.InstructionEnumeration();
     }
-
+    
+    
+    
 
     public static float CalculateDebuffMultiplier(EntityBehaviorBodyTemperature instance)
     {
