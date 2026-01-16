@@ -50,6 +50,21 @@ public static class OnGameTickTemperaturePatch
                 new CodeInstruction(OpCodes.Ldarg_0),
                 new CodeInstruction(OpCodes.Call,typeof(OnGameTickTemperaturePatch).GetMethod("CalculateDebuffMultiplier")));
 
+
+        
+        matcher.Start()
+            .MatchStartForward(
+                new CodeMatch(OpCodes.Call, AccessTools.PropertyGetter(typeof(EntityBehaviorBodyTemperature), "nearHeatSourceStrength")),
+                new CodeMatch(OpCodes.Ldarg_0),
+                new CodeMatch(OpCodes.Ldfld, AccessTools.Field(typeof(EntityBehaviorBodyTemperature), "inEnclosedRoom")),
+                new CodeMatch(i => i.opcode == OpCodes.Brtrue || i.opcode == OpCodes.Brtrue_S)
+            );
+
+        matcher.MatchStartForward(
+            new CodeMatch(i => i.opcode == OpCodes.Ldc_R4 && (float)i.operand == 1f
+            )).SetOperandAndAdvance(0f);
+        
+        
         return matcher.InstructionEnumeration();
     }
     
