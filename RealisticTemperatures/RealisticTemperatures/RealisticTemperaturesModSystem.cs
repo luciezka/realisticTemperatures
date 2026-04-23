@@ -29,7 +29,7 @@ public class RealisticTemperaturesModSystem : ModSystem
         {
             EntityBehaviorBodyTemperature behavior = player.Entity.GetBehavior<EntityBehaviorBodyTemperature>();
             ClimateCondition climateAt = sapi.World.BlockAccessor.GetClimateAt(player.Entity.Pos.AsBlockPos);
-            player.SendMessage(group, $"Temperature: {(climateAt != null ? climateAt.Temperature : 0.0f)}°C\nWetness: {behavior.Wetness}\nDebuff Multiplier: {OnGameTickTemperaturePatch.CalculateDebuffMultiplier(behavior)}", EnumChatType.Notification);
+            player.SendMessage(group, $"Temperature: {(climateAt != null ? climateAt.Temperature : 0.0f)}°C\nWetness: {behavior.Wetness}\nDebuff Multiplier: {UpdateBodyTemperaturePatch.CalculateDebuffMultiplier(behavior)}", EnumChatType.Notification);
         }), Privilege.controlserver);
     }
 
